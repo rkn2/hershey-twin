@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Campus Digital Twin</title>
+<meta name="referrer" content="no-referrer">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f1f3f5; --surface:#ffffff; --ink:#18202a; --ink-2:#465262; --muted:#6c7888; --line:#d9dfe6; --grid:#eceff3;
+  --accent:#1e5f8e; --accent-soft:#e2edf6; --stage:#11161c; --stage-ink:#e6ebf0; --warn:#a86a00;
+  --e0:#c98a4b; --e1:#3f86c9; --e2:#e0457b; --e3:#a39a4a; --e4:#8e5bd6; --e5:#2bb3a3; --enone:#8a918c;
+  --sans:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --serif:Bitter,Georgia,serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){ --bg:#0e1216; --surface:#161c22; --ink:#e7ecf1; --ink-2:#b3bdc8; --muted:#8793a0; --line:#28313a; --grid:#1f262e;
+    --accent:#7fb6e0; --accent-soft:#1b2833; --warn:#e2a93a; color-scheme:dark; }
+}
+:root[data-theme="dark"]{ --bg:#0e1216; --surface:#161c22; --ink:#e7ecf1; --ink-2:#b3bdc8; --muted:#8793a0; --line:#28313a; --grid:#1f262e;
+  --accent:#7fb6e0; --accent-soft:#1b2833; --warn:#e2a93a; color-scheme:dark; }
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans)}
+a{color:var(--accent)}
+button{font:inherit;color:inherit}
+button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1360px;margin:0 auto;padding:20px 16px 40px;display:grid;gap:14px}
+header.top{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:8px 24px}
+.eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin:0}
+h1{font:700 clamp(22px,3vw,30px)/1.15 var(--serif);margin:2px 0 0;text-wrap:balance}
+.meta{color:var(--muted);font-size:13px;margin:0}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:14px;align-items:start}
+@media (max-width:960px){.layout{grid-template-columns:1fr}}
+.stage{position:relative;background:var(--stage);border-radius:10px;overflow:hidden;height:min(78vh,800px);min-height:440px}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+.status{position:absolute;inset:0;display:grid;place-items:center;color:var(--stage-ink);font-size:14px;padding:16px;text-align:center;pointer-events:none}
+.status pre{white-space:pre-wrap;text-align:left;font:12px/1.5 var(--mono);pointer-events:auto;user-select:text;max-width:100%}
+.bar{position:absolute;left:10px;right:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;pointer-events:none}
+.bar.topbar{top:10px}.bar.bottom{bottom:10px}
+.bar>*{pointer-events:auto}
+.chip{background:rgba(17,22,28,.86);color:var(--stage-ink);border:1px solid rgba(230,235,240,.18);border-radius:6px;padding:5px 9px;font:600 12px var(--sans);display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.chip:hover{border-color:rgba(230,235,240,.5)}
+.chip[aria-pressed="true"]{background:#1e5f8e;border-color:#7fb6e0}
+.chip select{background:transparent;color:inherit;border:0;font:inherit;padding:0;width:auto;max-width:200px}
+.chip select option{color:#111}
+.chip input[type=range]{width:110px;accent-color:#7fb6e0}
+.chip output{font:500 12px var(--mono);min-width:9ch}
+.legend{position:absolute;right:10px;top:52px;background:rgba(17,22,28,.86);color:var(--stage-ink);border-radius:8px;padding:8px 10px;font-size:12px;display:grid;gap:3px;max-width:250px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.legend .ramp{height:9px;border-radius:3px;margin:2px 0}
+.labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;font:600 11px var(--sans);color:#fff;background:rgba(17,22,28,.74);padding:2px 6px;border-radius:4px;pointer-events:auto;cursor:pointer;border:1px solid transparent}
+.lbl:hover,.lbl.sel{border-color:#7fb6e0}
+.lbl.bld{background:rgba(30,95,142,.9)}
+.lbl.bus{background:#1f8a5b}
+.lbl.heli{background:#c0392b}
+.lbl.cam{background:#f2c200;color:#1b1b1b}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:14px;align-content:start;min-width:0;max-height:min(78vh,800px);overflow:auto}
+@media (max-width:960px){.panel{max-height:none}}
+@media (max-width:600px){.legend{left:10px;right:auto;max-width:70%;font-size:11px;max-height:34%;overflow:auto}.chip{padding:8px 10px}}
+.panel h2{font:700 19px/1.2 var(--serif);margin:0}
+.panel h3{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.panel p{margin:0 0 6px}
+.sub{color:var(--ink-2);font-size:13px}
+.back{justify-self:start;background:none;border:0;padding:0;color:var(--accent);font-size:13px;font-weight:600;cursor:pointer}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.facts>div{background:var(--surface);padding:8px 10px;display:grid;gap:1px;min-width:0}
+.facts .k{font-size:11px;color:var(--muted)}
+.facts .v{font:500 15px var(--mono);font-variant-numeric:tabular-nums}
+.facts .s{font-size:11px;color:var(--muted)}
+.tl{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+.tl li{display:grid;grid-template-columns:62px 1fr;gap:8px}
+.tl b{font:600 13px var(--mono);color:var(--accent)}
+.src{font-size:11px;color:var(--muted)}
+ul.plain{margin:0;padding-left:18px}
+ul.plain li{margin:2px 0}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent);margin-left:4px;vertical-align:1px}
+.tag.warn{background:rgba(168,106,0,.14);color:var(--warn)}
+.split{display:flex;height:12px;border-radius:5px;overflow:hidden;margin:6px 0}
+.split i{display:block;height:100%}
+.keyrow{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--ink-2)}
+.keyrow i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.note{font-size:12px;color:var(--muted)}
+table.kv{border-collapse:collapse;width:100%;font-size:12px}
+table.kv td{border-bottom:1px solid var(--grid);padding:4px 6px;vertical-align:top}
+table.kv td:first-child{color:var(--muted);white-space:nowrap}
+details summary{cursor:pointer;color:var(--ink-2);font-weight:600;font-size:13px}
+.about{font-size:13px;color:var(--ink-2);max-width:92ch}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:5px}
+.gallery button{padding:0;border:0;border-radius:5px;overflow:hidden;background:var(--grid);cursor:pointer;aspect-ratio:4/3}
+.gallery img{width:100%;height:100%;object-fit:cover;display:block}
+.viewer{display:grid;gap:6px}
+.viewer img{width:100%;border-radius:8px;background:var(--grid);display:block}
+.seg{display:flex;flex-wrap:wrap;gap:4px}
+.seg button{background:var(--accent-soft);color:var(--accent);border:1px solid var(--line);border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
+.bars{display:grid;gap:4px}
+.bars .row{display:grid;grid-template-columns:108px 1fr 52px;gap:8px;align-items:center;font-size:12px}
+.bars .row span:last-child{font:500 12px var(--mono);text-align:right;color:var(--ink-2)}
+.bars .track{height:10px;border-radius:3px;background:var(--grid);overflow:hidden}
+.bars .track i{display:block;height:100%}
+#gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;place-items:center;padding:16px}
+#gate form{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:24px;display:grid;gap:12px;width:min(380px,100%)}
+#gate input[type=password]{font:inherit;font-size:15px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+#gate button{background:var(--accent);color:var(--surface);border:0;border-radius:8px;padding:9px;font-weight:600;cursor:pointer}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"},
+ "integrity":{"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js":"sha384-61S/Nu32S3E5+n+KpCOTb2eRYps6fVKm+9Gz1QBvSePFthb46f063Aa/qe/lykFZ",
+  "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js":"sha384-qlO/ZugKPxAQUAvTlQoo0QECzxJIJySZmCF/DHdb2Xn/hHndFwX/vfUAC9Hbk6LP"}}</script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="eyebrow">Penn State Heritage 3D Lab · Digital Twin Hub</p>
+      <h1 id="title">Campus digital twin</h1>
+    </div>
+    <p class="meta" id="meta">Loading…</p>
+  </header>
+  <main class="layout">
+    <section class="stage" aria-label="3D campus model">
+      <canvas id="c" aria-label="Interactive 3D model of the campus and its surroundings"></canvas>
+      <div class="labels" id="labels"></div>
+      <div id="imgnote" style="position:absolute;left:10px;max-width:min(560px,70%);color:rgba(230,235,240,.8);font-size:11px;line-height:1.35;pointer-events:none;text-shadow:0 1px 2px #000"></div>
+      <div class="status" id="status">Loading…</div>
+      <div class="bar topbar" role="toolbar" aria-label="Layers">
+        <button class="chip" data-layer="terrain" aria-pressed="true">Terrain + imagery</button>
+        <button class="chip" data-layer="buildings" aria-pressed="true">Buildings</button>
+        <button class="chip" data-layer="points" aria-pressed="false">Lidar points</button>
+        <button class="chip" data-layer="lines" aria-pressed="true">Roads + paths</button>
+        <button class="chip" data-layer="traffic" aria-pressed="false">Traffic (AADT)</button>
+        <button class="chip" data-layer="transit" aria-pressed="true">Bus stops</button>
+        <button class="chip" data-layer="aviation" aria-pressed="true">Helipads + obstacles</button>
+        <button class="chip" data-layer="removed" aria-pressed="false">Removed since 2016</button>
+        <button class="chip" data-layer="photos" aria-pressed="true">Photos</button>
+        <button class="chip" data-layer="labels" aria-pressed="true">Labels</button>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div class="bar bottom" role="toolbar" aria-label="View">
+        <button class="chip" id="vHome">Home</button>
+        <button class="chip" id="vTop">Top</button>
+        <button class="chip" id="vMain" hidden></button>
+        <button class="chip" id="vKids" hidden></button>
+        <label class="chip">Imagery <input id="iYear" type="range" min="0" max="0" step="1" value="0" aria-label="Imagery year"><output id="iLabel">2022</output></label>
+        <label class="chip">Buildings <select id="bMode"><option value="epoch">construction date</option><option value="type">by use</option><option value="height">roof height</option></select></label>
+        <label class="chip">Points <select id="pMode"><option value="photo">photo color</option><option value="class">lidar class</option><option value="height">height</option></select></label>
+      </div>
+    </section>
+    <aside class="panel" id="panel" aria-label="Details"></aside>
+  </main>
+  <details class="about">
+    <summary>About this model and its data</summary>
+    <div id="about"></div>
+    <p><button class="back" id="forget" type="button">Forget this device (sign out)</button></p>
+  </details>
+</div>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+// ---------------------------------------------------------------- data access (plain in dev, AES-GCM behind the gate when published)
+let KEY = null, FORGET = null;
+const DATA = "data/";
+async function getBuf(name){
+  const url = DATA + name + (KEY ? ".enc" : "");
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${url}: HTTP ${res.status}`);
+  const buf = await res.arrayBuffer();
+  if (!KEY) return buf;
+  const u = new Uint8Array(buf);
+  try { return await crypto.subtle.decrypt({name:"AES-GCM", iv:u.slice(0,12)}, KEY, u.slice(12)); }
+  catch(e){ throw new Error(`${url}: decrypt failed (${e.name})`); }
+}
+const getJSON = async n => JSON.parse(new TextDecoder().decode(await getBuf(n)));
+const texCache = new Map();
+function getTex(n){
+  if (!texCache.has(n)) texCache.set(n, (async () => {
+    const bmp = await createImageBitmap(new Blob([await getBuf(n)], {type:"image/jpeg"})); // row 0 = north; v flipped in the shader
+    const t = new THREE.Texture(bmp); t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.needsUpdate = true; return t;
+  })().catch(e => { texCache.delete(n); throw e; }));
+  return texCache.get(n);
+}
+const blobUrls = new Map();
+async function blobUrl(n){ if (!blobUrls.has(n)) blobUrls.set(n, URL.createObjectURL(new Blob([await getBuf(n)], {type:"image/jpeg"}))); return blobUrls.get(n); }
+
+const $ = id => document.getElementById(id);
+const safeUrl = u => /^https:\/\//i.test(String(u || "")) ? String(u) : "#";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = (v, d=1) => v == null || !isFinite(v) ? "–" : (+v).toFixed(d);
+const M2FT = 3.28084, M2SF = 10.7639;
+const hex = c => "#" + c.toString(16).padStart(6, "0");
+
+// ---------------------------------------------------------------- scene
+const canvas = $("c"), statusEl = $("status");
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x11161c);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 9000); camera.up.set(0,0,1);
+const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.495;
+scene.add(new THREE.HemisphereLight(0xeef4ff, 0x4a5058, 1.35));
+const sun = new THREE.DirectionalLight(0xffffff, 1.7); sun.position.set(-300, -450, 650); scene.add(sun);
+function resize(){ const w = canvas.clientWidth, h = canvas.clientHeight; renderer.setSize(w, h, false); camera.aspect = w/h; camera.updateProjectionMatrix(); }
+new ResizeObserver(() => { resize(); if (T) { legend(); imageryNote(); } }).observe(canvas); resize();
+
+let T, F, S, Z0, dem, N, PX, ROOF, BID, EPOCH, NM = null;
+const layers = {terrain:new THREE.Group(), buildings:new THREE.Group(), points:new THREE.Group(), lines:new THREE.Group(), traffic:new THREE.Group(),
+  transit:new THREE.Group(), aviation:new THREE.Group(), removed:new THREE.Group(), photos:new THREE.Group()};
+Object.values(layers).forEach(g => scene.add(g));
+const state = {labels:true, bMode:"epoch", pMode:"photo", sel:null};
+
+function h(x, y){ // bilinear terrain height, local metres -> scene z
+  const c = (x + F.ctx) / PX - 0.5, r = (F.ctx - y) / PX - 0.5;
+  const c0 = Math.max(0, Math.min(N-2, Math.floor(c))), r0 = Math.max(0, Math.min(N-2, Math.floor(r)));
+  const fc = Math.min(1, Math.max(0, c - c0)), fr = Math.min(1, Math.max(0, r - r0));
+  const a = dem[r0*N+c0], b = dem[r0*N+c0+1], cc = dem[(r0+1)*N+c0], d = dem[(r0+1)*N+c0+1];
+  return (a*(1-fc)+b*fc)*(1-fr) + (cc*(1-fc)+d*fc)*fr - Z0;
+}
+const lonlat = (x, y) => [F.lon[0]*x + F.lon[1]*y + F.lon[2], F.lat[0]*x + F.lat[1]*y + F.lat[2]];
+function fromLL(la, lo){ const [a,b,c] = F.lon, [d,e,f] = F.lat, det = a*e - b*d, u = lo - c, v = la - f; return [(e*u - b*v)/det, (a*v - d*u)/det]; }
+
+// ---------------------------------------------------------------- imagery (public time slider; Nearmap years only in licensed builds)
+let terrainMat = null, IMG = [];
+function imageryNote(){
+  const el = $("imgnote"); if (!el || !IMG.length) return;
+  if (!matchMedia("(max-width:600px)").matches) el.style.bottom = (document.querySelector(".bar.bottom").offsetHeight + 16) + "px";
+  const m = IMG[+$("iYear").value];
+  el.textContent = m.nearmap
+    ? `Imagery © Nearmap ${m.date} (${Math.round(m.outPixel * 100)} cm) inside the 800 m box, NAIP 2022 beyond. Licensed, not for redistribution.`
+    : `Imagery: ${m.label} · ${m.source}${m.nativeRes ? ` · native ${m.nativeRes}` : ""}. NAIP 2022 beyond the 800 m box.`;
+}
+async function setImagery(i){
+  const m = IMG[i]; $("iLabel").textContent = m.short;
+  try { const t = await getTex(m.file); if (+$("iYear").value === i) terrainMat.uniforms.hi.value = t; }   // ignore stale loads
+  catch(e){ console.warn("imagery", e); }
+  if (+$("iYear").value === i) imageryNote();
+}
+async function buildTerrain(){
+  const [ctx, hi] = await Promise.all([getTex("naip_ctx.jpg"), getTex("naip_hi.jpg")]);
+  const W = PX * (N - 1), g = new THREE.PlaneGeometry(W, W, N - 1, N - 1), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) p.setZ(i, dem[i] - Z0); // PlaneGeometry rows run north to south, like the DEM
+  g.computeVertexNormals();
+  terrainMat = new THREE.ShaderMaterial({
+    uniforms:{ctx:{value:ctx}, hi:{value:hi}, CTX:{value:F.ctx}, HI:{value:F.hi}, L:{value:new THREE.Vector3(-0.35,-0.45,0.82).normalize()}},
+    vertexShader:`varying vec2 vxy; varying vec3 vn; void main(){ vxy = position.xy; vn = normal; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+    fragmentShader:`uniform sampler2D ctx; uniform sampler2D hi; uniform float CTX; uniform float HI; uniform vec3 L; varying vec2 vxy; varying vec3 vn;
+      void main(){ vec3 c = (abs(vxy.x) < HI && abs(vxy.y) < HI) ? texture2D(hi, vec2((vxy.x + HI) / (2.0*HI), (HI - vxy.y) / (2.0*HI))).rgb : texture2D(ctx, vec2((vxy.x + CTX) / (2.0*CTX), (CTX - vxy.y) / (2.0*CTX))).rgb;
+        float s = 0.78 + 0.32 * max(dot(normalize(vn), L), 0.0); gl_FragColor = vec4(c * s, 1.0);
+#include <colorspace_fragment>
+}`,
+  });
+  const mesh = new THREE.Mesh(g, terrainMat); mesh.userData.kind = "terrain"; layers.terrain.add(mesh);
+  // slider entries: public aerials by year, then Nearmap surveys when this build carries them
+  IMG = S.aerials.map(a => ({...a, short:a.key, sortKey:a.key === "1980s" ? "1985" : a.key}));
+  if (NM) for (const s of NM.series) IMG.push({file:s.file, date:s.date, outPixel:s.outPixel, nearmap:true, short:`NM ${s.date.slice(0,4)}`, label:`Nearmap ${s.date}`, sortKey:s.date.slice(0,4) + "n"});
+  if (NM) IMG.push({file:"nearmap_hi.jpg", date:NM.captureDate, outPixel:NM.outPixel, nearmap:true, short:`NM ${NM.captureDate.slice(0,4)} hi`, label:`Nearmap ${NM.captureDate} (detail)`, sortKey:"9999"});
+  IMG.sort((a, b) => a.sortKey < b.sortKey ? -1 : 1);
+  const def = IMG.findIndex(m => m.file === (NM ? "nearmap_hi.jpg" : "naip_hi.jpg"));
+  const sl = $("iYear"); sl.max = IMG.length - 1; sl.value = def; $("iLabel").textContent = IMG[def].short;
+  sl.oninput = e => setImagery(+e.target.value);
+  if (NM) await setImagery(def); else imageryNote();
+}
+
+// ---------------------------------------------------------------- buildings: 1 m roof-height columns from the 2024 lidar
+const ROLE_COL = {main:0x2a5db0, hospital:0x3f86c9, clinic:0x6aa3c9, housing:0xb58f5b, parking:0x8a8f96, service:0x9aa39d, other:0xb9bfba, lidar:0x7d8a80};
+const EP_COL = {0:0xc98a4b, 1:0x3f86c9, 2:0xe0457b, 3:0xa39a4a, 4:0x8e5bd6, 5:0x2bb3a3, "-1":0x8a918c};
+const EP_TXT = {0:"Standing by 2006–08", 5:"Storeys added 2006–08 → 2016", 1:"New 2006–08 → 2016", 4:"Storeys added 2016 → 2024", 2:"New 2016 → 2024", 3:"Changed / mixed", "-1":"Too little data to date"};
+const EP_ORDER = [0, 5, 1, 4, 2, 3, -1];
+let bMesh = null, vCell = null, vBid = null, vWall = null;
+function info(b){ return S.facts.buildings[b.name] || {}; }
+function roleOf(b){
+  if (b.lidarOnly) return "lidar";
+  const i = info(b); if (i.role) return i.role;
+  return S.facts.roleDefault[b.tags.building] || (b.tags.amenity === "hospital" ? "hospital" : "other");
+}
+const bName = b => info(b).displayName || b.name || (b.lidarOnly ? "Unmapped building" : "Unnamed building");
+function buildBuildings(){
+  const n = F.nr, cell = F.rc, pos = [], idx = [], cells = [], bids = [], walls = [];
+  const X = c => -F.pts + (c + 0.5) * cell, Y = r => F.pts - (r + 0.5) * cell;
+  const zAt = (r, c) => (r < 0 || c < 0 || r >= n || c >= n) ? null : (ROOF[r*n+c] > 0 ? ROOF[r*n+c] / 10 - Z0 : null);
+  const quad = (a, b, c, d, cellId, bid, wall) => {
+    const k = pos.length / 3; pos.push(...a, ...b, ...c, ...d); idx.push(k, k+1, k+2, k, k+2, k+3);
+    for (let i = 0; i < 4; i++){ cells.push(cellId); bids.push(bid); walls.push(wall); }
+  };
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++){
+    const z = zAt(r, c); if (z == null) continue;
+    const id = r*n+c, bid = BID[id], x0 = X(c) - cell/2, x1 = x0 + cell, y1 = Y(r) + cell/2, y0 = y1 - cell;
+    quad([x0,y0,z],[x1,y0,z],[x1,y1,z],[x0,y1,z], id, bid, 0);
+    // walls where the neighbour is lower (another roof level, or open ground)
+    const nb = [[r, c+1, [x1,y0],[x1,y1]], [r, c-1, [x0,y1],[x0,y0]], [r-1, c, [x1,y1],[x0,y1]], [r+1, c, [x0,y0],[x1,y0]]];
+    for (const [rr, cc, p, q] of nb){
+      const zn = zAt(rr, cc); let lo;
+      if (zn == null) lo = Math.min(h(p[0], p[1]), h(q[0], q[1])) - 0.4; else if (zn < z - 0.05) lo = zn; else continue;
+      quad([p[0],p[1],lo],[q[0],q[1],lo],[q[0],q[1],z],[p[0],p[1],z], id, bid, zn == null ? 2 : 1);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  g.setAttribute("color", new THREE.Float32BufferAttribute(new Float32Array(pos.length), 3));
+  vCell = Uint32Array.from(cells); vBid = Uint16Array.from(bids); vWall = Uint8Array.from(walls);
+  bMesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({vertexColors:true, side:THREE.DoubleSide}));
+  bMesh.userData.kind = "building"; layers.buildings.add(bMesh);
+  colorBuildings();
+}
+function colorBuildings(){
+  if (!bMesh) return;
+  const col = bMesh.geometry.attributes.color, tmp = new THREE.Color(), white = new THREE.Color(0xffffff), n = F.nr, nc = F.nc;
+  const sel = state.sel?.b ? T.buildings.indexOf(state.sel.b) + 1 : 0;
+  const hmin = 0, hmax = 45;
+  for (let i = 0; i < vBid.length; i++){
+    const bid = vBid[i], b = T.buildings[bid - 1], id = vCell[i], r = Math.floor(id / n), c = id % n;
+    if (state.bMode === "type") tmp.setHex(ROLE_COL[roleOf(b)]);
+    else if (state.bMode === "epoch"){ const e = EPOCH[(r >> 1) * nc + (c >> 1)]; tmp.setHex(EP_COL[e] ?? EP_COL[-1]); }
+    else { const t = Math.max(0, Math.min(1, ((ROOF[id] / 10) - b.grade - hmin) / (hmax - hmin))); tmp.setHSL(0.62 - 0.62 * t, 0.55, 0.52); }
+    if (vWall[i]) tmp.multiplyScalar(vWall[i] === 2 ? 0.66 : 0.78);
+    if (sel && bid === sel) tmp.lerp(white, 0.18);
+    col.setXYZ(i, tmp.r, tmp.g, tmp.b);
+  }
+  col.needsUpdate = true; legend();
+}
+function centroid(b){ const P = b.outer[0], n = P.length - 1; return [P.slice(0,n).reduce((s,p)=>s+p[0],0)/n, P.slice(0,n).reduce((s,p)=>s+p[1],0)/n]; }
+
+// ---------------------------------------------------------------- lidar points (2024)
+let pts;
+async function buildPoints(){
+  const P = T.points, ext = P.extent, n = P.count;
+  const pos = new Float32Array(n * 3), photo = new Uint8Array(n * 3), cls = new Uint8Array(n);
+  let o = 0;
+  for (const ch of P.chunks){
+    statusEl.hidden = false; statusEl.textContent = `Loading lidar… ${Math.round(100 * o / n)}%`;
+    const buf = await getBuf(ch.file), k = ch.count;
+    const q = new Uint16Array(buf, 0, k * 3), rgb = new Uint8Array(buf, k * 6, k * 3), cl = new Uint8Array(buf, k * 9, k);
+    for (let i = 0; i < k * 3; i++){ const a = i % 3; pos[o*3 + i] = (q[i] / 65535 * 2 - 1) * ext[a] + (a === 2 ? P.zc - Z0 : 0); }
+    photo.set(rgb, o * 3); cls.set(cl, o); o += k;
+  }
+  statusEl.hidden = true;
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  g.setAttribute("color", new THREE.BufferAttribute(new Uint8Array(n * 3), 3, true));
+  pts = new THREE.Points(g, new THREE.PointsMaterial({size:1.6, sizeAttenuation:false, vertexColors:true}));
+  pts.userData = {photo, cls}; layers.points.add(pts); colorPoints();
+}
+// 1 / 2 are USGS classes; 5 and 6 are derived in build.py (the 2024 delivery has no building or vegetation classes)
+const CLS = {1:[170,170,170,"Unclassified (USGS)"],2:[176,132,82,"Ground (USGS)"],5:[70,150,80,"Above ground, not a roof (derived)"],6:[222,96,70,"Roof (derived)"]};
+function colorPoints(){
+  if (!pts) return;
+  const col = pts.geometry.attributes.color.array, {photo, cls} = pts.userData, p = pts.geometry.attributes.position.array, n = cls.length;
+  if (state.pMode === "photo") col.set(photo);
+  else if (state.pMode === "class") for (let i = 0; i < n; i++){ const c = CLS[cls[i]] || [200,200,200]; col[i*3] = c[0]; col[i*3+1] = c[1]; col[i*3+2] = c[2]; }
+  else for (let i = 0; i < n; i++){ const z = p[i*3+2] - h(p[i*3], p[i*3+1]); const t = Math.max(0, Math.min(1, z / 45));
+    col[i*3] = 40 + 215*t; col[i*3+1] = 60 + 150*Math.sin(Math.PI*Math.min(1,t*1.1)); col[i*3+2] = 200 - 180*t; }
+  pts.geometry.attributes.color.needsUpdate = true; legend();
+}
+
+// ---------------------------------------------------------------- lines, traffic, removed structures
+function drape(pts2, lift){
+  const out = [];
+  for (let i = 0; i < pts2.length - 1; i++){
+    const [x0, y0] = pts2[i], [x1, y1] = pts2[i+1], s = Math.max(1, Math.ceil(Math.hypot(x1-x0, y1-y0) / 3));
+    for (let k = 0; k < s; k++){ const t = k / s, x = x0 + (x1-x0)*t, y = y0 + (y1-y0)*t; out.push(x, y, h(x, y) + lift); }
+  }
+  const [xl, yl] = pts2[pts2.length-1]; out.push(xl, yl, h(xl, yl) + lift); return out;
+}
+function buildLines(){
+  const style = {path:[0xf2e2b8, 0.5], road:[0xdcdcdc, 0.45], water:[0x5fb3ff, 0.3]};
+  for (const l of T.lines){
+    if (l.pts.length < 2) continue; const st = style[l.kind] || style.road;
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(drape(l.pts, st[1] + (l.bridge && l.bridge !== "no" ? 5 : 0)), 3));
+    layers.lines.add(new THREE.Line(g, new THREE.LineBasicMaterial({color:st[0], transparent:true, opacity:0.9})));
+  }
+}
+const aadtCol = v => new THREE.Color().setHSL(0.33 - 0.33 * Math.min(1, Math.log10(Math.max(v, 300) / 300) / Math.log10(25000 / 300)), 0.85, 0.5);
+const trafficLines = [];
+function ribbon(p2, width, lift){   // flat strip draped on the terrain (WebGL lines are always 1 px)
+  const c = drape(p2, lift), pos = [], idx = [], n = c.length / 3;
+  for (let i = 0; i < n; i++){
+    const a = Math.max(0, i - 1), b = Math.min(n - 1, i + 1), dx = c[b*3] - c[a*3], dy = c[b*3+1] - c[a*3+1], L = Math.hypot(dx, dy) || 1;
+    const nx = -dy / L * width / 2, ny = dx / L * width / 2;
+    pos.push(c[i*3] + nx, c[i*3+1] + ny, c[i*3+2], c[i*3] - nx, c[i*3+1] - ny, c[i*3+2]);
+    if (i) idx.push(2*i-2, 2*i-1, 2*i, 2*i-1, 2*i+1, 2*i);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); return g;
+}
+function buildTraffic(){
+  for (const s of S.context.traffic.segments){
+    if (!s.aadt) continue;
+    const w = 3 + 7 * Math.min(1, s.aadt / 25000);
+    for (const p of s.paths){
+      if (p.length < 2) continue;
+      const m = new THREE.Mesh(ribbon(p, w, 1.2), new THREE.MeshBasicMaterial({color:aadtCol(s.aadt), transparent:true, opacity:0.85, side:THREE.DoubleSide, depthWrite:false}));
+      m.userData = {kind:"traffic", s}; layers.traffic.add(m); trafficLines.push(m);
+    }
+  }
+}
+function buildRemoved(){
+  const m = new THREE.MeshBasicMaterial({color:0xff3b30, transparent:true, opacity:0.55, side:THREE.DoubleSide, depthWrite:false});
+  for (const r of T.removed){
+    const inst = new THREE.InstancedMesh(new THREE.PlaneGeometry(F.cc, F.cc), m, r.cells.length), mx = new THREE.Matrix4();
+    r.cells.forEach(([x, y], i) => { mx.makeTranslation(x, y, h(x, y) + 0.4); inst.setMatrixAt(i, mx); });
+    inst.userData = {kind:"removed", r}; layers.removed.add(inst);
+  }
+}
+
+// ---------------------------------------------------------------- pins: bus stops, helipads, obstacles, photos
+const pickables = [];
+function pin(group, x, y, height, color, data, size = 1.4){
+  const z = h(x, y);
+  group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(x, y, z + height)]), new THREE.LineBasicMaterial({color})));
+  const m = new THREE.Mesh(new THREE.BoxGeometry(size, size, size), new THREE.MeshLambertMaterial({color}));
+  m.position.set(x, y, z + height); m.userData = data; group.add(m); pickables.push(m); return z + height;
+}
+function buildPins(){
+  for (const s of S.context.transit.stops){
+    const [x, y] = fromLL(s.lat, s.lon); if (Math.abs(x) > F.ctx || Math.abs(y) > F.ctx) continue;
+    const top = pin(layers.transit, x, y, 6, 0x1f8a5b, {kind:"stop", s});
+    s.label = addLabel("Bus · " + s.name, x, y, top + 1.5, "bus", () => select({stop:s}), 0);
+  }
+  for (const hp of S.context.faa.heliports){
+    const top = pin(layers.aviation, hp.x, hp.y, 10, 0xc0392b, {kind:"heli", hp}, 2);
+    addLabel(`H · ${hp.id}`, hp.x, hp.y, top + 2, "heli", () => select({heli:hp}), 2);
+  }
+  for (const o of S.context.faa.obstacles){
+    pin(layers.aviation, o.x, o.y, o.aglFt / M2FT, 0xff8a3d, {kind:"obs", o}, 1.2);
+  }
+  S.photos.forEach((p, i) => {
+    if (p.lat == null) return; const [x, y] = fromLL(p.lat, p.lon);
+    if (Math.abs(x) > F.ctx || Math.abs(y) > F.ctx) return;
+    const top = pin(layers.photos, x, y, 5, 0xf2c200, {kind:"photo", i}, 1.2);
+    addLabel("Photo", x, y, top + 1.2, "cam", () => select({photo:i}), 2);
+  });
+}
+
+// ---------------------------------------------------------------- labels
+const labelEls = [];
+function addLabel(text, x, y, z, cls, onClick, pri = 1){
+  const el = document.createElement("button"); el.className = "lbl " + (cls || ""); el.textContent = text; el.type = "button";
+  el.addEventListener("click", e => { e.stopPropagation(); onClick(); });
+  $("labels").appendChild(el); const L = {el, v:new THREE.Vector3(x, y, z), cls, pri}; labelEls.push(L); return L;
+}
+const LAYER_OF = {bus:"transit", heli:"aviation", cam:"photos", bld:"buildings"};
+function buildLabels(){
+  T.buildings.forEach(b => {
+    if (!b.name || b.top == null) return;
+    const [cx, cy] = centroid(b), pri = S.facts.buildings[b.name] ? 2 : /^\d+-\d+$/.test(b.name) ? 0 : 1;
+    b.label = addLabel(bName(b), cx, cy, b.top - Z0 + 3, "bld", () => { select({b}); focusB(b); }, pri);
+  });
+  const seen = new Set(T.buildings.map(b => b.name));
+  for (const f of T.features){
+    const t = f.tags; if (!f.name || seen.has(f.name) || t.place || t.boundary || t.landuse || t.building || t.aeroway) continue;
+    if (Math.abs(f.x) > F.pts + 200 || Math.abs(f.y) > F.pts + 200) continue;
+    f.label = addLabel(f.name, f.x, f.y, h(f.x, f.y) + 3, "", () => select({f}), 0);
+  }
+}
+const _v = new THREE.Vector3();
+function placeLabels(){
+  const w = canvas.clientWidth, hh = canvas.clientHeight;
+  for (const L of labelEls){
+    const lay = LAYER_OF[L.cls], dist = camera.position.distanceTo(L.v);
+    const hideFar = (L.pri === 0 && dist > 320) || (L.pri === 1 && dist > 850);
+    if (!state.labels || hideFar || (lay && !layers[lay].visible)){ L.el.hidden = true; continue; }
+    _v.copy(L.v).project(camera);
+    if (_v.z > 1 || Math.abs(_v.x) > 1.05 || Math.abs(_v.y) > 1.05){ L.el.hidden = true; continue; }
+    L.el.hidden = false; L.el.style.left = ((_v.x + 1) / 2 * w) + "px"; L.el.style.top = ((1 - _v.y) / 2 * hh) + "px";
+  }
+}
+
+// ---------------------------------------------------------------- legend
+function legend(){
+  const el = $("legend"), rows = [];
+  const bb = document.querySelector(".bar.bottom").offsetHeight;
+  if (!matchMedia("(max-width:600px)").matches){ el.style.top = (document.querySelector(".topbar").offsetHeight + 16) + "px"; el.style.bottom = ""; }
+  else { el.style.top = "auto"; el.style.bottom = (bb + 20) + "px"; }
+  if (layers.buildings.visible){
+    if (state.bMode === "epoch") rows.push("<b>Roof dated by 3 lidar surveys</b>", ...EP_ORDER.map(k => `<span><i style="background:${hex(EP_COL[k])}"></i>${EP_TXT[k]}</span>`));
+    else if (state.bMode === "type") rows.push("<b>Buildings by use</b>", ...[["main","Original main building"],["hospital","Hospital (other)"],["clinic","Clinic"],["housing","Student housing"],["parking","Parking garage"],["service","Service / industrial"],["other","Other (OSM)"],["lidar","Unmapped in OSM (from lidar)"]].map(([k,t]) => `<span><i style="background:${hex(ROLE_COL[k])}"></i>${t}</span>`));
+    else rows.push(`<b>Roof height above grade</b><div class="ramp" style="background:linear-gradient(90deg,hsl(223,55%,52%),hsl(111,55%,52%),hsl(0,55%,52%))"></div><span>0 → 45+ m</span>`);
+  }
+  if (layers.traffic.visible) rows.push(`<b>PennDOT AADT (vehicles/day)</b><div class="ramp" style="background:linear-gradient(90deg,hsl(119,85%,50%),hsl(60,85%,50%),hsl(0,85%,50%))"></div><span>≤ 300 → 25,000</span>`);
+  if (layers.removed.visible) rows.push(`<span><i style="background:#ff3b30"></i>2016 roof, open ground in 2024</span>`);
+  if (layers.points.visible && state.pMode === "class") rows.push(`<b>Lidar class (2024)</b>`, ...Object.values(CLS).map(c => `<span><i style="background:rgb(${c[0]},${c[1]},${c[2]})"></i>${c[3]}</span>`));
+  if (layers.points.visible && state.pMode === "height") rows.push(`<b>Height above ground</b><div class="ramp" style="background:linear-gradient(90deg,rgb(40,60,200),rgb(147,210,110),rgb(255,60,20))"></div><span>0 → 45+ m</span>`);
+  el.innerHTML = rows.join(""); el.hidden = !rows.length;
+  const note = $("imgnote");   // on phones the imagery (licence) note sits above the legend
+  if (note && matchMedia("(max-width:600px)").matches) note.style.bottom = (bb + 20 + (el.hidden ? 0 : el.offsetHeight + 8)) + "px";
+}
+
+// ---------------------------------------------------------------- views
+function fly(target, dist, dir){ const d = new THREE.Vector3(...dir).normalize(); controls.target.copy(target); camera.position.copy(target).addScaledVector(d, dist); controls.update(); }
+const home = () => matchMedia("(max-width:600px)").matches ? fly(new THREE.Vector3(20, 0, 0), 780, [0.25, -0.8, 0.8]) : fly(new THREE.Vector3(20, 10, 0), 640, [0.25, -0.8, 0.62]);
+function focusB(b){
+  const [cx, cy] = centroid(b), r = Math.max(...b.outer[0].map(p => Math.hypot(p[0]-cx, p[1]-cy)));
+  fly(new THREE.Vector3(cx, cy, b.grade - Z0 + 10), Math.max(60, r * 3), [0.45, -0.75, 0.55]);
+}
+const byName = n => T.buildings.find(b => b.name === n);
+
+// ---------------------------------------------------------------- picking
+const ray = new THREE.Raycaster(); ray.params.Line.threshold = 3; let down = null;
+canvas.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; });
+canvas.addEventListener("pointerup", e => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+  const r = canvas.getBoundingClientRect();
+  ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera);
+  const vis = o => { for (let p = o; p; p = p.parent) if (p.visible === false) return false; return true; };
+  const targets = [...pickables.filter(vis), ...(layers.buildings.visible && bMesh ? [bMesh] : []), ...(layers.traffic.visible ? trafficLines : []),
+    ...(layers.removed.visible ? layers.removed.children : []), ...(layers.terrain.visible ? layers.terrain.children : [])];
+  const hit = ray.intersectObjects(targets, false)[0]; if (!hit) return;
+  const d = hit.object.userData;
+  if (d.kind === "building"){ const b = T.buildings[vBid[bMesh.geometry.index.array[hit.faceIndex * 3]] - 1]; if (b) select({b}); }
+  else if (d.kind === "stop") select({stop:d.s});
+  else if (d.kind === "heli") select({heli:d.hp});
+  else if (d.kind === "obs") select({obs:d.o});
+  else if (d.kind === "photo") select({photo:d.i});
+  else if (d.kind === "traffic") select({traffic:d.s});
+  else if (d.kind === "removed") select({removed:d.r});
+  else select({ground:hit.point});
+});
+
+// ---------------------------------------------------------------- panel
+const panel = $("panel");
+function select(s){
+  if (state.sel?.b?.label) state.sel.b.label.el.classList.remove("sel");
+  state.sel = s; if (s?.b?.label) s.b.label.el.classList.add("sel");
+  colorBuildings(); render();
+  if (s && matchMedia("(max-width:960px)").matches) panel.scrollIntoView({behavior:"smooth", block:"start"});
+}
+function render(){
+  const s = state.sel; if (!s) return renderOverview();
+  const back = `<button class="back" id="back">← Campus overview</button>`;
+  if (s.b) renderBuilding(s.b, back); else if (s.f) renderFeature(s.f, back); else if (s.stop) renderStop(s.stop, back);
+  else if (s.heli) renderHeli(s.heli, back); else if (s.obs) renderObs(s.obs, back); else if (s.photo != null) renderPhoto(s.photo, back);
+  else if (s.traffic) renderTraffic(s.traffic, back); else if (s.removed) renderRemoved(s.removed, back); else if (s.ground) renderGround(s.ground, back);
+  const b = $("back"); if (b) b.onclick = () => select(null);
+}
+const srcLink = (u, status) => { const us = [].concat(u || []); if (!us.length) return "";
+  return us.map((x, i) => `<a class="src" href="${esc(safeUrl(x))}" target="_blank" rel="noopener">${us.length > 1 ? "source " + (i + 1) : "source"}</a>`).join(" ")
+    + (status && status !== "CONFIRMED" ? ` <span class="src">· ${esc(status)}</span>` : ""); };
+function epochShares(cells){
+  const tot = EP_ORDER.reduce((s, k) => s + (cells[k] || 0), 0) || 1;
+  return `<div class="split" role="img" aria-label="${EP_ORDER.map(k => `${Math.round(100 * (cells[k] || 0) / tot)}% ${EP_TXT[k]}`).join(", ")}">${EP_ORDER.map(k => `<i style="width:${100 * (cells[k] || 0) / tot}%;background:${hex(EP_COL[k])}"></i>`).join("")}</div>
+    <div class="keyrow">${EP_ORDER.filter(k => (cells[k] || 0) / tot >= 0.005).map(k => `<span><i style="background:${hex(EP_COL[k])}"></i>${EP_TXT[k]} ${Math.round(100 * cells[k] / tot)}%</span>`).join("")}</div>`;
+}
+function campusEpochs(){
+  const c = {}; for (const b of T.buildings) for (const [k, v] of Object.entries(b.epochCells || {})) c[k] = (c[k] || 0) + v; return c;
+}
+function photoGrid(list, id){
+  if (!list.length) return "";
+  return `<div class="gallery" id="${id}">${list.map(i => `<button type="button" data-p="${i}" aria-label="${esc(S.photos[i].title)}"><img loading="lazy" alt="" src="${esc(safeUrl(S.photos[i].thumb))}" referrerpolicy="no-referrer"></button>`).join("")}</div>`;
+}
+function wirePhotos(){ panel.querySelectorAll("[data-p]").forEach(b => b.onclick = () => select({photo:+b.dataset.p})); }
+function renderOverview(){
+  const f = S.facts, cms = S.context.cms, ce = campusEpochs();
+  const aerialP = S.photos.map((p, i) => [p, i]).filter(([p]) => /aerial|ariel/i.test(p.subject || p.title)).map(([, i]) => i);
+  const other = S.photos.map((p, i) => [p, i]).filter(([p]) => !/aerial|ariel/i.test(p.subject || p.title)).map(([, i]) => i);
+  panel.innerHTML = `
+    <div><h2>${esc(f.site.short)} campus</h2><p class="sub">${esc(f.site.blurb)} Click a building, bus stop, helipad or photo pin for details.</p></div>
+    <section><h3>Right now</h3><div id="wx" class="sub">Loading conditions…</div></section>
+    <section><h3>Campus growth, measured <span class="tag">lidar 2006–08 · 2016 · 2024</span></h3>${epochShares(ce)}
+      <p class="note">Share of today's roof area in the 800 m model box, by when the three airborne lidar surveys first see a roof at today's height. Switch Buildings to “construction date” to see it on each roof.</p>
+      <button class="back" id="goKids">${esc(S.text.headline)} →</button></section>
+    <section><h3>Hospital at a glance <span class="tag">CMS snapshot</span></h3>
+      <div class="facts">
+        <div><span class="k">CMS overall rating</span><span class="v">${esc(cms.overallStar)} / 5</span><span class="s">Care Compare, CCN ${esc(cms.ccn)}</span></div>
+        <div><span class="k">Patient survey rating</span><span class="v">${esc(cms.hcahpsStar)} / 5</span><span class="s">HCAHPS ${esc(cms.hcahpsPeriod?.[0])}–${esc(cms.hcahpsPeriod?.[1])}, ${Number(cms.hcahpsSurveys).toLocaleString()} surveys</span></div>
+        <div><span class="k">Beds (cost report)</span><span class="v">${esc(cms.beds)}</span><span class="s">FY ${esc(cms.fyStart)} to ${esc(cms.fyEnd)}</span></div>
+        <div><span class="k">Discharges</span><span class="v">${Number(cms.discharges).toLocaleString()}</span><span class="s">same fiscal year</span></div>
+      </div>
+      <p class="note">${esc(cms.type)} · ${esc(cms.ownership)} · emergency services: ${esc(cms.emergency)}. Snapshot from data.cms.gov on ${esc(S.context.fetched.slice(0,10))} (CMS sends no browser access header, so it can't be live). Flood zone: ${S.context.flood.zones.map(z => esc(z.join(" – "))).join("; ")} (FEMA NFHL).</p></section>
+    <section><h3>History</h3><ul class="tl">${f.timeline.map(e => `<li><b>${esc(e.y)}</b><span>${esc(e.t)} ${srcLink(e.src, e.status)}</span></li>`).join("")}</ul></section>
+    <section><h3>Before the campus <span class="tag">PennPilot</span></h3>
+      <div class="seg" id="ppSeg">${S.pennpilot.map((p, i) => `<button type="button" data-pp="${i}" aria-pressed="${i === 0}">${esc(p.year)}</button>`).join("")}</div>
+      <div class="viewer" style="margin-top:8px"><img id="ppImg" alt="" referrerpolicy="no-referrer"><p class="note" id="ppNote"></p></div></section>
+    <section><h3>Aerials from the archive <span class="tag">${aerialP.length}</span></h3>${photoGrid(aerialP, "gA")}</section>
+    <section><h3>Construction and campus photos <span class="tag">${other.length}</span></h3>${photoGrid(other, "gO")}
+      <p class="note">${esc(S.text.photoNote)}</p></section>
+    <section><h3>Read more</h3><ul class="plain">${S.links.map(([t, u]) => `<li><a href="${esc(safeUrl(u))}" target="_blank" rel="noopener">${esc(t)}</a></li>`).join("")}</ul></section>`;
+  $("goKids").onclick = () => { const b = byName(S.views[1].building); if (b){ select({b}); focusB(b); } };
+  const pp = i => { const p = S.pennpilot[i]; $("ppImg").src = safeUrl(p.preview); $("ppImg").alt = `Aerial photograph, ${p.date}`;
+    $("ppNote").textContent = `${p.date} · frame ${p.frame}, centre ${p.km} km from the hospital · ${p.note}. USDA/PA historic aerials via PASDA PennPilot (not georeferenced, so shown as photos).`;
+    panel.querySelectorAll("[data-pp]").forEach(b => b.setAttribute("aria-pressed", +b.dataset.pp === i)); };
+  panel.querySelectorAll("[data-pp]").forEach(b => b.onclick = () => pp(+b.dataset.pp)); pp(0);
+  wirePhotos(); loadWeather();
+}
+function obliqueBlock(){
+  if (!NM?.oblique?.views?.length) return "";
+  return `<section><h3>Oblique views <span class="tag">Nearmap ${esc(NM.oblique.survey)}</span></h3>
+    <div class="seg" role="group" aria-label="Oblique view">${NM.oblique.views.map((v, i) => `<button type="button" data-o="${i}" aria-pressed="${i === 0}">${esc(v.label)}</button>`).join("")}</div>
+    <div class="viewer" style="margin-top:8px"><img id="oblImg" alt=""></div>
+    <p class="note">© Nearmap. Licensed imagery, not for redistribution. Angled (about 45°) photos of the hospital core show the facades, which airborne lidar and vertical imagery can't.</p></section>`;
+}
+async function wireOblique(){
+  if (!$("oblImg")) return;
+  const show = async i => { $("oblImg").src = await blobUrl(NM.oblique.views[i].file); $("oblImg").alt = NM.oblique.views[i].label;
+    panel.querySelectorAll("[data-o]").forEach(b => b.setAttribute("aria-pressed", +b.dataset.o === i)); };
+  panel.querySelectorAll("[data-o]").forEach(b => b.onclick = () => show(+b.dataset.o)); show(0);
+}
+function renderBuilding(b, back){
+  const i = info(b), hgt = b.top == null ? null : b.top - b.grade, [cx, cy] = centroid(b), [lo, la] = lonlat(cx, cy);
+  const keys = i.photoKeys || [], rel = keys.length ? S.photos.map((p, k) => [p, k]).filter(([p]) => keys.some(q => (p.subject + " " + p.title).toLowerCase().includes(q))).map(([, k]) => k).slice(0, 24) : [];
+  const core = !!i.oblique;   // buildings inside the Nearmap oblique mosaics (facts.json)
+  const tags = Object.entries(b.tags).filter(([k]) => !/^addr:|^name$|phone|website|email/.test(k));
+  panel.innerHTML = `${back}
+    <div><h2>${esc(bName(b))}</h2><p class="sub">${esc(i.blurb || (b.lidarOnly ? "A roof in the 2024 lidar with no OpenStreetMap outline. The outline shown is traced from the lidar." : ""))}</p>
+      ${b.clipped ? `<p class="note">This building crosses the edge of the 800 m model box, so only the part inside it is modelled.</p>` : ""}
+      ${b.lidarWing ? `<p class="note">The lidar shows ${fmt(b.lidarWing, 0)} m² of roof touching this outline that OpenStreetMap doesn't include; it is modelled as part of this building.</p>` : ""}</div>
+    <div class="facts">
+      <div><span class="k">Footprint</span><span class="v">${fmt(b.area * M2SF, 0)} sf</span><span class="s">${fmt(b.area, 0)} m² modelled roof${b.clipped ? " inside the model box" : ""}${b.lidarWing ? `, incl. ${fmt(b.lidarWing, 0)} m² of lidar wings` : ""} · not floor area</span></div>
+      <div><span class="k">Highest roof above grade</span><span class="v">${hgt == null ? "–" : fmt(hgt * M2FT, 0) + " ft"}</span><span class="s">${hgt == null ? esc(b.heightSource) : fmt(hgt, 1) + " m · 2024 lidar"}</span></div>
+      <div><span class="k">Grade elevation</span><span class="v">${fmt(b.grade * M2FT, 0)} ft</span><span class="s">${fmt(b.grade, 1)} m NAVD88 · median under footprint</span></div>
+      <div><span class="k">Roof levels found</span><span class="v">${b.levels.length || "–"}</span><span class="s">${b.levels.map(l => fmt(l[0], 0) + " m").join(" · ") || "no distinct levels"}</span></div>
+    </div>
+    <section><h3>When the roof appeared <span class="tag">3 lidar surveys</span></h3>${epochShares(b.epochCells)}
+      ${i.lidarNote ? `<p class="sub">${esc(i.lidarNote)} ${srcLink(i.lidarSrc, "")}</p>` : ""}
+      <p class="note">Each 2 m roof cell is compared with the 2016 survey (4.4 returns/m²) and the 2006–08 PAMAP survey (0.5 returns/m², so about 5 m effective resolution). “Storeys added” means that survey saw a hard roof more than 2.5 m below today's.</p></section>
+    ${i.facts?.length ? `<section><h3>Sourced facts</h3><table class="kv">${i.facts.map(x => `<tr><td>${esc(x.k)}</td><td>${esc(x.v)} ${srcLink(x.src, x.status)}</td></tr>`).join("")}</table></section>` : ""}
+    ${core ? obliqueBlock() : ""}
+    ${rel.length ? `<section><h3>Archive photos <span class="tag">${rel.length}</span></h3>${photoGrid(rel, "gB")}<p class="note">Matched on the archive's own captions, so a few may show a neighbouring building.</p></section>` : ""}
+    <details><summary>OpenStreetMap tags and lidar detail</summary><table class="kv">
+      <tr><td>outline area</td><td>${fmt(b.outlineArea, 0)} m² (${b.lidarOnly ? "traced from lidar" : "OSM polygon"})</td></tr>
+      ${b.osm ? `<tr><td>OSM</td><td><a href="https://www.openstreetmap.org/${esc(b.osm)}" target="_blank" rel="noopener">${esc(b.osm)}</a></td></tr>` : `<tr><td>outline</td><td>traced from 2024 lidar (not in OSM)</td></tr>`}
+      ${tags.map(([k,v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}
+      <tr><td>roof levels</td><td>${b.levels.map(l => `${fmt(l[0],1)} m (${fmt(l[1],0)} m²)`).join(", ") || "–"}</td></tr>
+      <tr><td>roof coverage</td><td>${Math.round(b.roofCover * 100)}% of footprint cells</td></tr>
+      ${b.iou ? `<tr><td>outline fit</td><td>${b.shift[0] || b.shift[1] ? `shifted ${fmt(b.shift[0])} m E, ${fmt(b.shift[1])} m N to the lidar roof (overlap ${fmt(b.iou[0],2)} → ${fmt(b.iou[1],2)})` : `used as drawn (overlap ${fmt(b.iou[0],2)})`}</td></tr>` : ""}
+      <tr><td>2006–08 votes</td><td>${Object.entries(b.votes06).map(([k, v]) => `${({"-1":"no data","0":"same","1":"open","2":"mixed","4":"lower roof"})[k]} ${v}`).join(", ")}</td></tr>
+      <tr><td>2016 votes</td><td>${Object.entries(b.votes16).map(([k, v]) => `${({"-1":"no data","0":"same","1":"open","2":"mixed","4":"lower roof"})[k]} ${v}`).join(", ")}</td></tr>
+      <tr><td>location</td><td>${la.toFixed(5)}, ${lo.toFixed(5)}</td></tr></table></details>`;
+  wirePhotos(); if (core) wireOblique();
+}
+function renderPhoto(i, back){
+  const p = S.photos[i];
+  panel.innerHTML = `${back}<div><h2>${esc(p.subject || p.title)}</h2><p class="sub">${esc(p.title)}${p.date ? " · " + esc(p.date) : ""}</p></div>
+    <div class="viewer"><img src="${esc(safeUrl(p.img))}" alt="${esc(p.subject || p.title)}" referrerpolicy="no-referrer"></div>
+    <table class="kv"><tr><td>Source</td><td><a href="${esc(safeUrl(p.page))}" target="_blank" rel="noopener">${esc(p.source)}</a></td></tr>
+      <tr><td>Author</td><td>${esc(p.author || "–")}</td></tr><tr><td>Rights</td><td>${p.license_url ? `<a href="${esc(safeUrl(p.license_url))}" target="_blank" rel="noopener">${esc(p.license)}</a>` : esc(p.license)}</td></tr>
+      ${p.lat != null ? `<tr><td>Location</td><td>${(+p.lat).toFixed(5)}, ${(+p.lon).toFixed(5)}</td></tr>` : `<tr><td>Location</td><td>not recorded</td></tr>`}</table>`;
+  if (p.lat != null){ const [x, y] = fromLL(p.lat, p.lon); fly(new THREE.Vector3(x, y, h(x, y)), 160, [0.45, -0.75, 0.6]); }
+}
+function renderFeature(f, back){
+  const t = f.tags, [lo, la] = lonlat(f.x, f.y), kind = t.amenity || t.healthcare || t.leisure || t.tourism || t.man_made || t.shop || "";
+  panel.innerHTML = `${back}<div><h2>${esc(f.name || kind.replace(/_/g, " "))}</h2><p class="sub">${esc(kind.replace(/_/g, " "))}</p></div>
+    <table class="kv">${Object.entries(t).filter(([k]) => k !== "name" && !/phone|email/.test(k)).map(([k,v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}
+    <tr><td>location</td><td>${la.toFixed(5)}, ${lo.toFixed(5)}</td></tr><tr><td>OSM</td><td><a href="https://www.openstreetmap.org/${esc(f.osm)}" target="_blank" rel="noopener">${esc(f.osm)}</a></td></tr></table>`;
+  fly(new THREE.Vector3(f.x, f.y, h(f.x, f.y)), 120, [0.5, -0.75, 0.6]);
+}
+function renderStop(s, back){
+  const tr = S.context.transit;
+  panel.innerHTML = `${back}<div><h2>${esc(s.name)}</h2><p class="sub">Bus stop ${esc(s.id)} · ${esc(tr.agency)}</p></div>
+    <table class="kv"><tr><td>Routes</td><td>${s.routes.map(esc).join(", ")}</td></tr><tr><td>Location</td><td>${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}</td></tr>
+    <tr><td>Timetable</td><td>GTFS feed valid ${esc(tr.valid?.[0])} – ${esc(tr.valid?.[1])} (snapshot)</td></tr></table>
+    <p class="note">From the agency's public GTFS feed. Real-time arrivals: <a href="${esc(safeUrl(tr.site))}" target="_blank" rel="noopener">${esc(tr.agency)}</a>.</p>`;
+}
+function renderHeli(hp, back){
+  panel.innerHTML = `${back}<div><h2>${esc(hp.name)}</h2><p class="sub">FAA heliport ${esc(hp.id)} · ${hp.use === "PR" ? "private use" : esc(hp.use)}</p></div>
+    <div class="facts"><div><span class="k">FAA identifier</span><span class="v">${esc(hp.id)}</span><span class="s">NASR 28-day cycle</span></div>
+      <div><span class="k">Elevation</span><span class="v">${esc(hp.elevFt)} ft</span><span class="s">as published by the FAA</span></div></div>
+    <p class="note">From the FAA's NASR airport data${S.text.heli?.[hp.id] ? ". " + esc(S.text.heli[hp.id]) : ""}. <a href="${esc(safeUrl(S.context.faa.nasr))}" target="_blank" rel="noopener">FAA NASR</a>.</p>`;
+}
+function renderObs(o, back){
+  panel.innerHTML = `${back}<div><h2>${esc(o.type.toLowerCase().replace(/^./, c => c.toUpperCase()))}</h2><p class="sub">FAA Digital Obstacle File ${esc(o.oas)}</p></div>
+    <div class="facts"><div><span class="k">Height above ground</span><span class="v">${fmt(o.aglFt, 0)} ft</span><span class="s">${fmt(o.aglFt / M2FT, 1)} m</span></div>
+      <div><span class="k">Top above sea level</span><span class="v">${fmt(o.amslFt, 0)} ft</span><span class="s">${fmt(o.amslFt / M2FT, 1)} m</span></div></div>
+    <p class="note">Obstacles the FAA publishes for pilots (cycle ${esc(S.context.faa.dofCycle)}), drawn at their published height. <a href="${esc(safeUrl(S.context.faa.dof))}" target="_blank" rel="noopener">FAA DOF</a>.</p>`;
+}
+function renderTraffic(s, back){
+  panel.innerHTML = `${back}<div><h2>State route ${esc(s.route)}${s.name ? " · " + esc(s.name) : ""}</h2><p class="sub">PennDOT traffic volume segment</p></div>
+    <div class="facts"><div><span class="k">AADT</span><span class="v">${Number(s.aadt).toLocaleString()}</span><span class="s">vehicles per day, annual average</span></div>
+      <div><span class="k">Trucks</span><span class="v">${esc(s.truckPct ?? "–")}%</span><span class="s">counted ${esc(String(s.counted || "–").replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3"))}</span></div></div>
+    <p class="note">PennDOT RMS traffic volumes, open data (snapshot).</p>`;
+}
+function renderRemoved(r, back){
+  panel.innerHTML = `${back}<div><h2>Structure removed after 2016</h2><p class="sub">About ${fmt(r.area, 0)} m² of flat, hard roof more than 3 m above ground in the 2016 survey. The 2024 survey sees open ground here.</p></div>
+    <p class="note">Found automatically by comparing the two lidar surveys. It may be a demolished building, a removed canopy or a temporary structure. The aerial time slider can show what was there.</p>`;
+  fly(new THREE.Vector3(r.x, r.y, h(r.x, r.y)), 110, [0.45, -0.75, 0.6]);
+}
+function renderGround(p, back){
+  const [lo, la] = lonlat(p.x, p.y);
+  panel.innerHTML = `${back}<div><h2>Ground point</h2><p class="sub">${la.toFixed(5)}, ${lo.toFixed(5)}</p></div>
+    <div class="facts"><div><span class="k">Elevation</span><span class="v">${fmt((p.z + Z0) * M2FT, 0)} ft</span><span class="s">${fmt(p.z + Z0, 1)} m NAVD88 (3DEP)</span></div>
+    <div><span class="k">From the main hospital</span><span class="v">${fmt(Math.hypot(p.x, p.y), 0)} m</span><span class="s">straight-line</span></div></div>`;
+}
+
+// ---------------------------------------------------------------- live feeds
+let wxCache = null;
+async function getJ(url, opts = {}){ const r = await fetch(url, {...opts, signal:AbortSignal.timeout(9000)}); if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }
+async function loadWeather(){
+  const el = $("wx"); if (!el) return;
+  if (wxCache && Date.now() - wxCache.t < 600000){ el.innerHTML = wxCache.html.join(""); return; }
+  const L = S.live, parts = ["<p class='note'>Loading site weather…</p>", "", "", ""];
+  const paint = () => { const e = $("wx"); if (e) e.innerHTML = parts.join(""); }; paint();
+  const tm = s => new Date(s).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
+  const jobs = [
+    (async () => { try {
+      const [j, aq] = await Promise.all([
+        getJ(`https://api.open-meteo.com/v1/forecast?latitude=${L.lat}&longitude=${L.lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation,cloud_cover&daily=sunrise,sunset&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=America%2FNew_York&forecast_days=1`),
+        getJ(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${L.lat}&longitude=${L.lon}&current=us_aqi,pm2_5,ozone&timezone=America%2FNew_York`).catch(() => null)]);
+      const c = j.current, a = aq?.current;
+      parts[0] = `<div class="facts"><div><span class="k">Air temperature</span><span class="v">${fmt(c.temperature_2m,0)}°F</span><span class="s">RH ${fmt(c.relative_humidity_2m,0)}% · ${fmt(c.cloud_cover,0)}% cloud</span></div>
+        <div><span class="k">Wind</span><span class="v">${fmt(c.wind_speed_10m,0)} mph</span><span class="s">${fmt(c.precipitation,2)} in precip</span></div>
+        <div><span class="k">Air quality (US AQI)</span><span class="v">${a ? fmt(a.us_aqi,0) : "–"}</span><span class="s">${a ? `PM2.5 ${fmt(a.pm2_5,1)} µg/m³ · ozone ${fmt(a.ozone,0)} µg/m³` : "unavailable"}</span></div>
+        <div><span class="k">Sunrise · sunset</span><span class="v" style="font-size:13px">${tm(j.daily.sunrise[0])} · ${tm(j.daily.sunset[0])}</span><span class="s">at the campus</span></div></div>
+        <p class="note">Modelled for this spot by Open-Meteo (weather and CAMS air quality), not measured on campus. Updated ${esc(new Date(c.time).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}.</p>`;
+    } catch(e){ parts[0] = `<p class="note">Site weather unavailable (${esc(e.message)}).</p>`; } paint(); })(),
+    (async () => { try {
+      const p = (await getJ(`https://api.weather.gov/stations/${L.nws[0]}/observations/latest`, {headers:{Accept:"application/geo+json"}})).properties;
+      const f = p.temperature?.value == null ? "–" : fmt(p.temperature.value * 9/5 + 32, 0);
+      parts[1] = `<p class="note">Nearest airport station, ${esc(L.nws[0])} (${esc(L.nwsName)}): ${f}°F${p.textDescription ? ", " + esc(p.textDescription) : ""}, observed ${esc(tm(p.timestamp))}.</p>`;
+    } catch(e){ parts[1] = `<p class="note">${esc(L.nws[0])} unavailable (${esc(e.message)}).</p>`; } paint(); })(),
+    (async () => { try {
+      const j = await getJ(`https://api.waterdata.usgs.gov/ogcapi/v0/collections/latest-continuous/items?monitoring_location_id=${L.gauge}&f=json`);
+      const v = {}; for (const ft of j.features || []) v[ft.properties.parameter_code] = ft.properties;
+      const q = v["00060"], g = v["00065"];
+      parts[2] = `<p class="note">${esc(L.gaugeName)} (USGS ${esc(L.gauge.replace("USGS-", ""))}, the nearest live stream gauge): ${q ? Number(q.value).toLocaleString() + " cfs" : "–"}${g ? `, stage ${fmt(g.value, 2)} ft` : ""}${q ? `, ${esc(new Date(q.time).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}))}` : ""}. Provisional USGS data.</p>`;
+    } catch(e){ parts[2] = `<p class="note">USGS gauge unavailable (${esc(e.message)}).</p>`; } paint(); })(),
+  ];
+  await Promise.all(jobs);
+  if (!parts.join("").includes("unavailable")) wxCache = {t:Date.now(), html:parts.slice()};
+}
+
+// ---------------------------------------------------------------- toolbar
+document.querySelectorAll("[data-layer]").forEach(btn => btn.addEventListener("click", async () => {
+  const k = btn.dataset.layer, on = btn.getAttribute("aria-pressed") !== "true"; btn.setAttribute("aria-pressed", on);
+  if (k === "labels") state.labels = on; else layers[k].visible = on;
+  if (k === "points" && on && !pts) { try { await buildPoints(); } catch(e){ report("the lidar points", e); } }
+  legend();
+}));
+$("bMode").onchange = e => { state.bMode = e.target.value; colorBuildings(); };
+$("pMode").onchange = e => { state.pMode = e.target.value; colorPoints(); };
+$("vHome").onclick = home;
+$("forget").onclick = async () => { if (FORGET) await FORGET(); location.reload(); };
+$("vTop").onclick = () => fly(new THREE.Vector3(0, 0, 0), 1100, [0, -0.02, 1]);   // slight southward tilt keeps north up
+function wireViews(){   // view-button targets come from the encrypted site.json, so the public page names no buildings
+  [["vMain", 0], ["vKids", 1]].forEach(([id, i]) => { const v = S.views?.[i], b = v && byName(v.building); if (!b) return;
+    const el = $(id); el.textContent = v.label; el.hidden = false; el.onclick = () => { select({b}); focusB(b); }; });
+}
+function report(what, e){
+  console.error(what, e); statusEl.hidden = false;
+  const pre = document.createElement("pre"); pre.textContent = `Could not load ${what}\n${e && e.stack || e}`; statusEl.replaceChildren(pre);
+}
+
+// ---------------------------------------------------------------- boot
+async function boot(){
+  try {
+    statusEl.textContent = "Loading model…";
+    [T, S] = await Promise.all([getJSON("twin.json"), getJSON("site.json")]); F = T.frame; N = F.demN; PX = F.demPx;
+    const [d, r, b, e] = await Promise.all(["terrain.f32", "roof.bin", "bid.bin", "epoch.bin"].map(getBuf));
+    dem = new Float32Array(d); ROOF = new Int16Array(r); BID = new Uint16Array(b); EPOCH = new Int8Array(e);
+    Z0 = dem[Math.floor(N / 2) * N + Math.floor(N / 2)];
+    try { NM = await getJSON("nearmap_meta.json"); } catch(err){ NM = null; }   // licensed layer, private builds only
+    document.title = S.facts.site.short + " Twin"; $("title").textContent = S.facts.site.name;
+    await buildTerrain(); buildBuildings(); buildLines(); buildTraffic(); buildRemoved(); buildLabels(); buildPins();
+    layers.points.visible = false; layers.traffic.visible = false; layers.removed.visible = false;
+    statusEl.hidden = true; wireViews(); home(); render(); legend();
+    const nb = T.buildings.filter(b => b.top != null).length;
+    $("meta").textContent = `${S.facts.site.address} · lidar 2024 · ${nb} buildings · built ${T.generated}`;
+    $("about").innerHTML = S.text.about.map(t => `<p>${esc(t.replace("{naip}", T.naip[0].date))}</p>`).join("");
+  } catch(e){ report("the model", e); return; }
+  (function loop(){ requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); placeLabels(); })();
+}
+
+// ---------------------------------------------------------------- gate (published copy only; dev copy has no gate.json)
+(async function(){
+  const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  let G = null;
+  try { const r = await fetch("gate.json"); if (r.ok) G = await r.json(); } catch(e){}
+  if (!G) return boot();
+  const gate = document.createElement("div"); gate.id = "gate";
+  gate.innerHTML = `<form id="gateform"><p class="eyebrow">Penn State Heritage 3D Lab</p><h1 style="font-size:22px">Campus digital twin</h1>
+    <label for="pw" class="sub">Enter the password to view.</label><input id="pw" type="password" autocomplete="current-password" required>
+    <label class="sub" style="display:flex;gap:8px;align-items:center"><input id="remember" type="checkbox" checked> Remember on this device for 30 days</label>
+    <button type="submit">View</button><p id="gatemsg" class="sub" role="alert" style="margin:0;min-height:1.2em"></p></form>`;
+  document.body.appendChild(gate); document.querySelector(".wrap").inert = true; $("pw").focus();
+  const tryKey = async k => { const u = b64(G.check); try { await crypto.subtle.decrypt({name:"AES-GCM", iv:u.slice(0,12)}, k, u.slice(12)); return true; } catch(e){ return false; } };
+  const open = k => { KEY = k; gate.remove(); document.querySelector(".wrap").inert = false; FORGET = idbDel; boot(); };
+  // "Remember" keeps a non-extractable CryptoKey in IndexedDB (never raw key bytes), expiring after 30 days.
+  // The store name is unique to this twin: every twin shares the rkn2.github.io origin.
+  const DB = "hmc-twin";
+  const idb = () => new Promise((res, rej) => { const r = indexedDB.open(DB, 1); r.onupgradeneeded = () => r.result.createObjectStore("k"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+  const idbGet = async () => { const db = await idb(); return new Promise(res => { const q = db.transaction("k").objectStore("k").get("key"); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); };
+  const idbPut = async v => { const db = await idb(); return new Promise(res => { const t = db.transaction("k", "readwrite"); t.objectStore("k").put(v, "key"); t.oncomplete = res; t.onerror = res; }); };
+  const idbDel = async () => { try { const db = await idb(); db.transaction("k", "readwrite").objectStore("k").delete("key"); } catch(e){} };
+  try { const s = await idbGet();
+    if (s && s.exp > Date.now() && s.salt === G.salt && await tryKey(s.key)) return open(s.key);
+    if (s) await idbDel(); } catch(e){}
+  $("gateform").addEventListener("submit", async e => {
+    e.preventDefault(); const msg = $("gatemsg"); msg.textContent = "Checking…";
+    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode($("pw").value.trim().toLowerCase()), "PBKDF2", false, ["deriveKey"]);
+    const k = await crypto.subtle.deriveKey({name:"PBKDF2", salt:b64(G.salt), iterations:G.iter, hash:"SHA-256"}, base, {name:"AES-GCM", length:256}, false, ["decrypt"]);
+    if (!(await tryKey(k))){ msg.textContent = "That password didn't work."; return; }
+    if ($("remember").checked){ try { await idbPut({key:k, salt:G.salt, exp:Date.now() + 30*864e5}); } catch(e){} }
+    open(k);
+  });
+})();
+</script>
+</body>
+</html>
